@@ -112,30 +112,22 @@ void DelalydMFFTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear(i, 0, buffer.getNumSamples());
 
+    /*
+    for(int i  = 0 ; i < buffer.getNumSamples();i++)
+        buffer.setSample(0, i, fmod((tmpDebugIndex = tmpDebugIndex + 1)*0.001,1.0));
+    
+*/
     // Process input samples
     if (totalNumInputChannels > 0)
     {
         auto* inputData = buffer.getReadPointer(0);
-        auto* outputData = buffer.getWritePointer(0);
+    
         
         for (int i = 0; i < buffer.getNumSamples(); ++i)
         {
             // Fill intermediate buffer with input
             intermediateBuffer.setSample(0, intermediateBufferIndex, inputData[i]);
-            
-            // Output from output buffer (with overlap-add)
-            if (outputBufferIndex < outputBufferSize)
-            {
-                outputData[i] = outputBuffer.getSample(0, outputBufferIndex);
-                
-                // Overlap-add: clear this sample after reading
-                outputBuffer.setSample(0, outputBufferIndex, 0.0f);
-                outputBufferIndex++;
-            }
-            else
-            {
-                outputData[i] = 0.0f;
-            }
+   
             
             intermediateBufferIndex++;
             
@@ -143,38 +135,29 @@ void DelalydMFFTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
             if (intermediateBufferIndex >= fftSize)
             {
                 processFFT(intermediateBuffer);
-                intermediateBufferIndex = hopSize; // Overlap için
+                intermediateBufferIndex = fftSize - hopSize; // Overlap için
                 
                 // Shift remaining samples for overlap
-                for (int j = 0; j < hopSize; j++)
+                for (int j = 0; j < fftSize - hopSize; j++)
                 {
                     intermediateBuffer.setSample(0, j,
-                        intermediateBuffer.getSample(0, j + fftSize - hopSize));
+                        intermediateBuffer.getSample(0, j + hopSize));
                 }
             }
+            
+            buffer.setSample(0, i, outputBuffer.getSample(0, outputReadBufferIndex)/4);
+            buffer.setSample(1, i, outputBuffer.getSample(0, outputReadBufferIndex)/4);
+            tmpfftInbuffer[outputReadBufferIndex] =  outputBuffer.getSample(0, outputReadBufferIndex)/4;
+            outputBuffer.setSample(0, outputReadBufferIndex, 0);
+           
+            outputReadBufferIndex = (outputReadBufferIndex + 1)% (2 * fftSize);
+   
+            
         }
+
+        
     }
     
-    if (totalNumOutputChannels > 1 && totalNumInputChannels > 0)
-    {
-        // outputBuffer'dan kanal 1'e kopyala
-        for (int i = 0; i < buffer.getNumSamples(); ++i)
-        {
-            if (outputBufferIndex - buffer.getNumSamples() + i >= 0 &&
-                outputBufferIndex - buffer.getNumSamples() + i < outputBufferSize)
-            {
-                float sample = outputBuffer.getSample(0, outputBufferIndex - buffer.getNumSamples() + i);
-                buffer.setSample(0, i, sample);
-                buffer.setSample(1, i, sample );
-              
-               
-            }
-            else
-            {
-                //buffer.setSample(0, i, 0.0f);
-            }
-        }
-    }
 }
 
 void DelalydMFFTAudioProcessor::processFFT(juce::AudioBuffer<float>& inputBuffer)
@@ -186,6 +169,7 @@ void DelalydMFFTAudioProcessor::processFFT(juce::AudioBuffer<float>& inputBuffer
     }
 
     // Apply window
+
     window.multiplyWithWindowingTable(fftInbuffer[0], fftSize);
     
     // Forward FFT
@@ -196,19 +180,23 @@ void DelalydMFFTAudioProcessor::processFFT(juce::AudioBuffer<float>& inputBuffer
     
     // Apply window again and scale
     window.multiplyWithWindowingTable(fftInbuffer[0], fftSize);
-    
-    const float scaleFactor = 1.0f / fftSize;
+
+    const float scaleFactor = 1.0f;
     
     // Overlap-add to output buffer (NO window after inverse FFT)
+    int tmp = outputBufferIndex;
     for (int i = 0; i < fftSize; ++i)
     {
-        float currentSample = outputBuffer.getSample(0, i);
+        
+       
+        float currentSample = outputBuffer.getSample(0, tmp);
         float newSample = fftInbuffer[0][i] * scaleFactor;
-        outputBuffer.setSample(0, i, currentSample + newSample);
+        outputBuffer.setSample(0, tmp, currentSample + newSample);
+        tmp = (tmp + 1)% (2 * fftSize);
     }
-    
+    outputBufferIndex = (outputBufferIndex + hopSize)%(2 * fftSize);
     outputBufferSize = fftSize;
-    outputBufferIndex = 0;
+    //outputBufferIndex = 0;
 }
 
 

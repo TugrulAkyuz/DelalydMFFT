@@ -77,12 +77,14 @@ private:
     int intermediateBufferIndex;
     
     juce::AudioBuffer<float> outputBuffer;
-    int outputBufferIndex;
+    int outputBufferIndex = 0;
+    int outputReadBufferIndex = 0;;
     int outputBufferSize;
     juce::dsp::WindowingFunction<float> window;
     juce::dsp::FFT forwardFFT;
     float fftInbuffer[2][2*1024] = {};
- 
+    float tmpfftInbuffer[4*1024] = {};
+    double tmpDebugIndex = 0;;
     // Delay frames
     int delayFrames;
 
