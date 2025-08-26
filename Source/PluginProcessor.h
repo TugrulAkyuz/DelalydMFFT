@@ -4,6 +4,13 @@
 #include <vector>
 #include <complex>
 
+static constexpr int fftOrder = 11;
+static constexpr int fftSize = 1 << fftOrder;      // 1024 samples
+static constexpr int numBins = fftSize / 2 + 1;    // 513 bins
+static constexpr int overlap = 4;                  // 75% overlap
+static constexpr int hopSize = fftSize / overlap;  // 256 samples
+static constexpr int FFTBUFFER =  50 ;
+
 //==============================================================================
 /**
 */
@@ -82,9 +89,11 @@ private:
     int outputBufferSize;
     juce::dsp::WindowingFunction<float> window;
     juce::dsp::FFT forwardFFT;
-    float fftInbuffer[2][2*1024] = {};
-    float tmpfftInbuffer[4*1024] = {};
-    double tmpDebugIndex = 0;;
+    float fftInbuffer[2][fftSize] = {};
+    float fftDelayInbuffer[2][FFTBUFFER][fftSize] = {};
+    int fftDelayReadbuffer = 0;
+    int fftDelayWritebuffer = 0;
+
     // Delay frames
     int delayFrames;
 

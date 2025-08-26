@@ -1,12 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-static constexpr int fftOrder = 11;
-static constexpr int fftSize = 1 << fftOrder;      // 1024 samples
-static constexpr int numBins = fftSize / 2 + 1;    // 513 bins
-static constexpr int overlap = 4;                  // 75% overlap
-static constexpr int hopSize = fftSize / overlap;  // 256 samples
-
 
 //==============================================================================
 DelalydMFFTAudioProcessor::DelalydMFFTAudioProcessor()
@@ -147,7 +141,6 @@ void DelalydMFFTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
             
             buffer.setSample(0, i, outputBuffer.getSample(0, outputReadBufferIndex)/4);
             buffer.setSample(1, i, outputBuffer.getSample(0, outputReadBufferIndex)/4);
-            tmpfftInbuffer[outputReadBufferIndex] =  outputBuffer.getSample(0, outputReadBufferIndex)/4;
             outputBuffer.setSample(0, outputReadBufferIndex, 0);
            
             outputReadBufferIndex = (outputReadBufferIndex + 1)% (2 * fftSize);
@@ -167,13 +160,27 @@ void DelalydMFFTAudioProcessor::processFFT(juce::AudioBuffer<float>& inputBuffer
     {
         fftInbuffer[0][i] = inputBuffer.getSample(0, i);
     }
-
+    delayFrames = 0;
     // Apply window
 
     window.multiplyWithWindowingTable(fftInbuffer[0], fftSize);
     
     // Forward FFT
     forwardFFT.performRealOnlyForwardTransform(fftInbuffer[0], true);
+    
+    memcpy(fftDelayInbuffer[0][fftDelayWritebuffer], fftInbuffer[0], fftSize * sizeof(float));
+    delayFrames = parameters.getRawParameterValue("delayFrames")->load() -1;
+
+    
+    int d = (fftDelayWritebuffer + delayFrames)%FFTBUFFER ;
+    for (int i = 0; i < fftSize; ++i)
+    {
+        fftInbuffer[0][i] = fftDelayInbuffer[0][d][i % fftSize]*fftInbuffer[0][i];
+    }
+    
+    
+      // Update write buffer position
+    fftDelayWritebuffer = (fftDelayWritebuffer + 1) % FFTBUFFER;
     
     // Inverse FFT
     forwardFFT.performRealOnlyInverseTransform(fftInbuffer[0]);
