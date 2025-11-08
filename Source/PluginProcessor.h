@@ -91,11 +91,12 @@ private:
     juce::dsp::FFT forwardFFT;
     float fftInbuffer[2][fftSize] = {};
     float fftDelayInbuffer[2][FFTBUFFER][fftSize] = {};
+    float fftDelayInbufferSnapShot[2][fftSize] = {};
     int fftDelayReadbuffer = 0;
     int fftDelayWritebuffer = 0;
 
     // Delay frames
     int delayFrames;
-
+    int counter = 0;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DelalydMFFTAudioProcessor)
 };

@@ -171,11 +171,18 @@ void DelalydMFFTAudioProcessor::processFFT(juce::AudioBuffer<float>& inputBuffer
     memcpy(fftDelayInbuffer[0][fftDelayWritebuffer], fftInbuffer[0], fftSize * sizeof(float));
     delayFrames = parameters.getRawParameterValue("delayFrames")->load() -1;
 
+   if((counter ++) % (44100/2048) == 0)
+       for (int i = 0; i < fftSize; ++i)
+       {
+           fftDelayInbufferSnapShot[0][i] = fftInbuffer[0][i]/4;
+       }
+       
     
     int d = (fftDelayWritebuffer + delayFrames)%FFTBUFFER ;
     for (int i = 0; i < fftSize; ++i)
     {
-        fftInbuffer[0][i] = fftDelayInbuffer[0][d][i % fftSize]*fftInbuffer[0][i];
+        //fftInbuffer[0][i] = fftDelayInbuffer[0][d][i % fftSize]*fftInbuffer[0][i];
+        fftInbuffer[0][i] = fftDelayInbufferSnapShot[0][i % fftSize]*fftInbuffer[0][i];
     }
     
     
